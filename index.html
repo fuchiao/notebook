@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Notebook 0.0.1</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="js/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="js/simple-sidebar.css" rel="stylesheet">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+</head>
+
+<body>
+
+    <div class="" id="wrapper">
+
+        <!-- Sidebar -->
+        <div id="sidebar-wrapper">
+            <ul class="sidebar-nav" id="nav"></ul>
+			<button type="button" class="btn btn-default" id="dis-sidebar"><<</button>
+        </div>
+        <!-- /#sidebar-wrapper -->
+
+        <div id="sidebar2-wrapper">
+            <div id="toc" class="toc">
+                <h2 class="toctitle">Content</h2>
+                <ul></ul>
+            </div>
+        </div>
+
+		
+        <!-- Page Content -->
+        <div id="page-content-wrapper">
+			<div class="row">
+				<textarea class="col-lg-6" rows="25" id="raw-content"></textarea>
+				<div id="html-content" class="col-lg-6"></div>
+			</div>
+		</div>
+		<button type="button" class="btn btn-default" id="menu-toggle" style="margin-left:40px">Toggle Menu</button>
+		<button type="button" class="btn btn-default" id="menu-toggle" style="margin-left:40px">Edit</button>
+        <!-- /#page-content-wrapper -->
+
+    </div>
+    <!-- /#wrapper -->
+
+    <!-- jQuery -->
+    <script src="js/jquery.js"></script>
+
+    <!-- Bootstrap Core JavaScript -->
+    <script src="js/bootstrap.js"></script>
+
+    <script src="js/markdown.js"></script>
+
+    <!-- Menu Toggle Script -->
+    <script>
+    $("#menu-toggle").click(function(e) {
+        e.preventDefault();
+        $("#wrapper").toggleClass("toggled");
+    });
+    $("#dis-sidebar").click(function(e) {
+        e.preventDefault();
+        $("#wrapper").toggleClass("toggled");
+    });
+	
+    var posts = [];
+	var postIndex = -1;
+    $("#raw-content").keyup(function(e) {
+        e.preventDefault();
+		console.log("textarea change, post"+postIndex);
+        var raw = $("#raw-content").val();
+        loadMd(raw);
+	    postIndex = saveRawToDB(postIndex, raw);
+        loadTitleList();
+    });
+	
+    function loadRaw(index) {
+        postIndex = index;
+        raw = getRawFromDB(index);
+        $("#raw-content").val(raw);
+        loadMd(raw);
+    }
+
+    function loadToc(html) {
+        var htmlList = html.split('\n');
+        var tocList = [];
+        var re = new RegExp('^<h.>(.+)</h.>$');
+        for (var i in htmlList) {
+            var m = re.exec(htmlList[i]);
+            if (m !== null) {
+                tocList.push({"depth": Number(m[0][2]), "text": m[1]});
+            }
+        };
+        console.log("tocList", tocList);
+
+        var tocHtml = "";
+        var depth = 0;
+        for (var i in tocList) {
+            if (tocList[i]["depth"] > 2) {continue;}
+            while (depth !== tocList[i]["depth"]) {
+                if (depth < tocList[i]["depth"]) {
+                    depth += 1;
+                    tocHtml += "<ul>";
+                }
+                else {
+                    depth -= 1;
+                    tocHtml += "</ul>";
+                }
+            }
+            tocHtml += "<li>"+tocList[i]["text"]+"</li>"
+        }
+        while (depth > 0) {
+            depth -= 1;
+            tocHtml += "</ul>";
+        }
+        console.log("tocHtml", tocHtml);
+        $("#toc ul").html(tocHtml);
+    }
+
+    function loadMd(rawPost) {
+        var htmlPost = markdown.toHTML(rawPost);
+        $("#html-content").html(htmlPost);
+        loadToc(htmlPost);
+    }
+
+    function getRawFromDB(index) {
+        if (index < 0) {
+            return "NEW FILE\n";
+        }
+        else {
+            return posts[index]["title"] + "\n" + posts[index]["context"];
+        }
+    }
+
+    function getTitleFromDB(index) {
+        if (index < 0) {
+            return "NEW FILE\n";
+        }
+        else if (posts[index]["title"].length === 0) {
+            return "<b><i><u>no title</u></i></b>";
+        }
+        else {
+            return posts[index]["title"];
+        }
+    }
+
+    function saveRawToDB(index, rawPost) {
+		var title = rawPost.split('\n')[0];
+        var context = rawPost.slice(title.length + 1);
+
+        if (index < 0) {
+            index = posts.length;
+            posts.push({"title": title, "context": context});
+            loadTitleList();
+        }
+        else {
+            posts[index]["title"] = title;
+            posts[index]["context"] = context;
+        }
+        return index;
+    }
+
+    function getPostNumber() {
+        return posts.length;
+    }
+
+    function loadTitleList() {
+        var titleListHtml = "<li class='sidebar-brand'>Notebook</li>";
+        for (var i = -1; i < getPostNumber(); i++) {
+            var title = getTitleFromDB(i);
+            titleListHtml += '<li><button type="button" class="btn btn-link btn-lg" onclick=loadRaw('+i+')>'+title+'</button></li>';
+            console.log("loadTitleList", i, title);
+        }
+        $("#nav").html(titleListHtml);
+    }
+
+    loadTitleList();
+    loadRaw(-1);
+
+    </script>
+
+</body></html>
